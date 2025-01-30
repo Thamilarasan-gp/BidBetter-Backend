@@ -18,7 +18,7 @@ const server = http.createServer(app);
 
 const io = require('socket.io')(server, {
   cors: {
-    origin: "*",
+    origin: "bid-better-web-git-master-thamilarasan-gps-projects.vercel.app",
     methods: ["GET", "POST"]
   }
 });
