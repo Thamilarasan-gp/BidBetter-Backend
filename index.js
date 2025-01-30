@@ -37,16 +37,12 @@ app.use('/api/bids', bidRoutes);
 app.use('/api/auctions', auctionRoutes);
 app.use('/api/images', imageRoutes);
 // MongoDB Connection
-const mongourl = "mongodb://localhost:27017/Bidding";
+const mongourl = "mongodb+srv://thamilprakasam2005:appichithamil@cluster0.qqwny.mongodb.net/Bidding";
 mongoose.connect(mongourl)
   .then(() => {
     console.log("Connected to MongoDB");
   })
   .catch((error) => console.error("Error connecting to MongoDB:", error));
-
-
-
-
 
 // Create User Schema and Model
 const userSchema = new mongoose.Schema({
