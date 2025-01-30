@@ -14,7 +14,7 @@
   <div id="bidNotifications"></div>
 
   <script>
-    const socket = io('http://localhost:5000');  
+    const socket = io('https://bidbetter-backend.onrender.com');  
 
     // Listen for 'newBid' event
     socket.on('newBid', (data) => {
