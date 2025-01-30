@@ -22,6 +22,12 @@ const io = require('socket.io')(server, {
     methods: ["GET", "POST"]
   }
 });
+app.use(express.static(path.join(__dirname, 'client/build')));
+
+// Catch-all handler for all routes, sending the React app's index.html
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'client/build', 'index.html'));
+});
 
 app.use(bodyParser.json());
 app.use(cors());
