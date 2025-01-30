@@ -1,0 +1,95 @@
+
+app.post('/create-room', async (req, res) => {
+  try {
+      const { auctionRoomName, category, date, duration, teamsList } = req.body;
+      const roomId = Math.random().toString(36).substring(2, 10); // Generate unique roomId
+
+      const newAuctionRoom = new AuctionRoom({
+        auctionRoomName,
+        category,
+        date,
+        duration,
+        teamsList,
+        roomId,
+        budget: new Map(teamsList.map(team => [team.teamName, 1000000])) // Set initial budget
+    });
+    
+      await newRoom.save();
+      res.status(201).json({ message: 'Auction room created', roomId });
+  } catch (error) {
+      res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+* Join an auction room and select a team
+*/
+app.post('/join-room', async (req, res) => {
+  try {
+      const { roomId, userId, teamName } = req.body;
+      const room = await AuctionRoom.findOne({ roomId });
+
+      if (!room) return res.status(404).json({ message: 'Room not found' });
+
+      const team = room.teamsList.find(t => t.teamName === teamName);
+      if (!team) return res.status(400).json({ message: 'Team not found' });
+
+      if (team.selectedBy) return res.status(400).json({ message: 'Team already selected' });
+
+      team.selectedBy = userId;
+      await room.save();
+      res.json({ message: 'Team selected successfully' });
+  } catch (error) {
+      res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+* Place a bid on a player
+*/app.post('/bid', async (req, res) => {
+  const { roomId, teamName, playerName, bidAmount, userId } = req.body;
+
+  try {
+      const auctionRoom = await AuctionRoom.findOne({ roomId });
+
+      if (!auctionRoom) {
+          return res.status(404).json({ message: "Auction room not found" });
+      }
+
+      // Get the team's budget
+      let teamBudget = auctionRoom.budget.get(teamName) || 0;
+
+      // Check if the team has enough budget
+      if (teamBudget < bidAmount) {
+          return res.status(400).json({ message: "Insufficient budget" });
+      }
+
+      // Deduct the bid amount from the team's budget
+      auctionRoom.budget.set(teamName, teamBudget - bidAmount);
+
+      // Save the bid
+      auctionRoom.bids.push({ playerName, bidAmount, bidBy: userId });
+
+      await auctionRoom.save();
+      return res.status(200).json({ message: "Bid placed successfully" });
+
+  } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Server error" });
+  }
+});
+
+
+/**
+* Get auction room details
+*/
+app.get('/room/:roomId', async (req, res) => {
+  try {
+      const room = await AuctionRoom.findOne({ roomId: req.params.roomId });
+      if (!room) return res.status(404).json({ message: 'Room not found' });
+
+      res.json(room);
+  } catch (error) {
+      res.status(500).json({ error: error.message });
+  }
+});

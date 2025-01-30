@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Socket.IO Test</title>
+  <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+</head>
+<body>
+  <h1>Socket.IO Bid Test</h1>
+
+  <button id="placeBidBtn">Place a Bid</button>
+
+  <div id="bidNotifications"></div>
+
+  <script>
+    const socket = io('http://localhost:5000');  
+
+    // Listen for 'newBid' event
+    socket.on('newBid', (data) => {
+      const notificationsDiv = document.getElementById('bidNotifications');
+      const newNotification = document.createElement('div');
+      newNotification.textContent = `New Bid: ${data.bidder} placed a bid of ${data.bidAmount}`;
+      notificationsDiv.appendChild(newNotification);
+    });
+
+    // Simulate placing a bid
+    document.getElementById('placeBidBtn').addEventListener('click', () => {
+      const bidData = {
+        bidder: 'User1',
+        bidAmount: Math.floor(Math.random() * 1000) + 1  // Random bid amount
+      };
+
+      socket.emit('bidPlaced', bidData);  // Emit bidPlaced event to server
+    });
+  </script>
+</body>
+</html>

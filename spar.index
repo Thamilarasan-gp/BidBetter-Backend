@@ -1,0 +1,422 @@
+// const express = require('express');
+// const mongoose = require('mongoose');
+// const bodyParser = require('body-parser');
+// const cors = require('cors');
+// const socketIo = require('socket.io');
+// const jwt = require('jsonwebtoken');
+// const bcrypt = require('bcryptjs');
+// require('dotenv').config();
+
+// // Initialize the app
+// const app = express();
+// const http = require('http').Server(app);
+
+// app.use(passport.initialize());
+// app.use(passport.session());
+
+// // Express session setup
+// app.use(session({
+//   secret: 'your-session-secret',
+//   resave: false,
+//   saveUninitialized: true
+// }));
+
+// // Initialize Socket.io
+// const io = socketIo(http, {
+//   cors: {
+//     origin: "*",
+//     methods: ["GET", "POST"],
+//   }
+// });
+
+// // Middleware
+// app.use(bodyParser.json());
+// app.use(cors());
+
+// // MongoDB Connection
+// const mongourl = "mongodb://localhost:27017/Bidding";
+// mongoose.connect(mongourl)
+//   .then(() => {
+//     console.log("Connected to MongoDB");
+//   })
+//   .catch((error) => console.error("Error connecting to MongoDB:", error));
+
+// // Create User Schema and Model
+// const userSchema = new mongoose.Schema({
+//   username: String,
+//   password: String,
+// });
+// const User = mongoose.model('Users', userSchema);
+
+// // Routes
+// const auctionRoutes = require('./routes/auctionRoutes');
+// app.use('/api/auctions', auctionRoutes);
+
+// // Registration route
+// app.post("/register", async (req, res) => {
+//   try {
+//     const { username, password } = req.body;
+    
+//     // Input validation
+//     if (!username || !password) {
+//       return res.status(400).json({ message: "Username and password are required" });
+//     }
+//     if (password.length < 6) {
+//       return res.status(400).json({ message: "Password must be at least 6 characters long" });
+//     }
+
+//     // Check if user exists
+//     const existingUser = await User.findOne({ username });
+//     if (existingUser) {
+//       return res.status(400).json({ message: "Username already taken" });
+//     }
+
+//     // Hash password and create user
+//     const hashedPassword = await bcrypt.hash(password, 8);
+//     const newUser = new User({
+//       username,
+//       password: hashedPassword,
+//     });
+
+//     await newUser.save();
+
+//     // Generate JWT token
+//     const token = jwt.sign(
+//       { userId: newUser._id, username: newUser.username },
+//       process.env.JWT_SECRET || 'your-secret-key',
+//       { expiresIn: '24h' }
+//     );
+
+//     return res.status(201).json({ 
+//       message: "User registered successfully",
+//       token,
+//       userId: newUser._id
+//     });
+//   } catch (error) {
+//     console.error('Registration error:', error);
+//     return res.status(500).json({ message: "Server error during registration" });
+//   }
+// });
+
+// // Login route
+// app.post('/login', async (req, res) => {
+//   try {
+//     const { username, password } = req.body;
+    
+//     // Input validation
+//     if (!username || !password) {
+//       return res.status(400).json({ message: "Username and password are required" });
+//     }
+
+//     // Find user
+//     const user = await User.findOne({ username });
+//     if (!user) {
+//       return res.status(401).json({ message: "Invalid credentials" });
+//     }
+
+//     // Verify password
+//     const isValidPassword = await bcrypt.compare(password, user.password);
+//     if (!isValidPassword) {
+//       return res.status(401).json({ message: "Invalid credentials" });
+//     }
+
+//     // Generate JWT token
+//     const token = jwt.sign(
+//       { userId: user._id, username: user.username },
+//       process.env.JWT_SECRET || 'your-secret-key',
+//       { expiresIn: '24h' }
+//     );
+
+//     return res.status(200).json({
+//       message: "Login successful",
+//       token,
+//       userId: user._id
+//     });
+//   } catch (error) {
+//     console.error('Login error:', error);
+//     return res.status(500).json({ message: "Server error during login" });
+//   }
+// });
+
+// // Socket.io event for bid notifications
+// io.on('connection', (socket) => {
+//   console.log('A user connected');
+
+//   socket.on('bidPlaced', (data) => {
+//     console.log('Bid placed:', data);
+//     io.emit('newBid', data); // Broadcast the new bid to everyone
+//   });
+
+//   socket.on('disconnect', () => {
+//     console.log('A user disconnected');
+//   });
+// });
+
+// // Example backend route (Express.js)
+// app.get('/username', (req, res) => {
+//   if (req.isAuthenticated()) {
+//     return res.json({ username: req.user.username }); // Send JSON
+//   } else {
+//     res.status(401).send('Unauthorized'); // Handle unauthorized users
+//   }
+// });
+
+
+// // Default Error Handling
+// app.use((err, req, res, next) => {
+//   console.error(err.stack);
+//   res.status(500).send({ error: 'Something went wrong!' });
+// });
+
+// // Start the Server
+// const PORT = process.env.PORT || 5000;
+// http.listen(PORT, () => console.log(`🚀 Server running on http://localhost:${PORT}`));
+
+const express = require('express');
+const mongoose = require('mongoose');
+const bodyParser = require('body-parser');
+const cors = require('cors');
+const socketIo = require('socket.io');
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
+const nodemailer = require('nodemailer');
+const randomstring = require('randomstring');
+require('dotenv').config();
+
+const app = express();
+const http = require('http').Server(app);
+
+app.use(bodyParser.json());
+app.use(cors());
+
+// MongoDB Connection
+const mongourl = "mongodb://localhost:27017/Bidding";
+mongoose.connect(mongourl)
+  .then(() => {
+    console.log("Connected to MongoDB");
+  })
+  .catch((error) => console.error("Error connecting to MongoDB:", error));
+
+// Create User Schema and Model
+const userSchema = new mongoose.Schema({
+  username: String,
+  password: String,
+});
+const User = mongoose.model('Users', userSchema);
+
+// Routes
+const auctionRoutes = require('./routes/auctionRoutes');
+app.use('/api/auctions', auctionRoutes);
+
+// Registration route
+app.post("/register", async (req, res) => {
+  try {
+    const { username, password } = req.body;
+
+    if (!username || !password) {
+      return res.status(400).json({ message: "Username and password are required" });
+    }
+
+    const existingUser = await User.findOne({ username });
+    if (existingUser) {
+      return res.status(400).json({ message: "Username already taken" });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 8);
+    const newUser = new User({
+      username,
+      password: hashedPassword,
+    });
+
+    await newUser.save();
+
+    const token = jwt.sign(
+      { userId: newUser._id, username: newUser.username },
+      process.env.JWT_SECRET || 'your-secret-key',
+      { expiresIn: '24h' }
+    );
+
+    return res.status(201).json({
+      message: "User registered successfully",
+      token,
+      userId: newUser._id
+    });
+  } catch (error) {
+    console.error('Registration error:', error);
+    return res.status(500).json({ message: "Server error during registration" });
+  }
+});
+
+// Login route
+app.post('/login', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+
+    if (!username || !password) {
+      return res.status(400).json({ message: "Username and password are required" });
+    }
+
+    const user = await User.findOne({ username });
+    if (!user) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+
+    const isValidPassword = await bcrypt.compare(password, user.password);
+    if (!isValidPassword) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+
+    const token = jwt.sign(
+      { userId: user._id, username: user.username },
+      process.env.JWT_SECRET || 'your-secret-key',
+      { expiresIn: '24h' }
+    );
+
+    return res.status(200).json({
+      message: "Login successful",
+      token,
+      userId: user._id
+    });
+  } catch (error) {
+    console.error('Login error:', error);
+    return res.status(500).json({ message: "Server error during login" });
+  }
+});
+
+// Socket.io event for bid notifications
+const io = socketIo(http, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"],
+  }
+});
+
+io.on('connection', (socket) => {
+  console.log('A user connected');
+
+  socket.on('bidPlaced', (data) => {
+    console.log('Bid placed:', data);
+    io.emit('newBid', data); // Broadcast the new bid to everyone
+  });
+
+  socket.on('disconnect', () => {
+    console.log('A user disconnected');
+  });
+});
+
+// Store OTPs in memory
+let otpcache = {};
+
+// Function to generate OTP
+function generateOTP() {
+  return randomstring.generate({ length: 4, charset: 'numeric' });
+}
+app.post('/send-otp', (req, res) => {
+  const { email } = req.body;
+  // Simulate sending OTP logic (you can add actual email sending here)
+  if (email) {
+    res.json({ success: true, message: 'OTP sent to email' });
+  } else {
+    res.status(400).json({ success: false, message: 'Email is required' });
+  }
+});
+// Function to send OTP email via Gmail
+function sendOTP(email, otp) {
+  const mailOptions = {
+    from: ' <thamilarasan0026@gmail.com>',
+    to: email,
+    subject: 'OTP Verification',
+    text: `Dear User,
+
+    Your OTP Code: [ ${otp} ]
+    
+   `
+  };
+
+  let transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: 'thamilarasan0026@gmail.com',
+      pass: 'hhzy xkwx ujfb hewm' // Use App Password for Gmail 2FA enabled accounts
+    },
+    tls: {
+      rejectUnauthorized: false
+    }
+  });
+
+  transporter.sendMail(mailOptions, (error, info) => {
+    if (error) {
+      console.log('Error Occurred:', error);
+    } else {
+      console.log('OTP Email Sent Successfully:', info.response);
+    }
+  });
+}
+
+// Request OTP route
+app.post('/reqOTP', (req, res) => {
+  const { email } = req.body;
+  console.log(`Received OTP request for email: ${email}`);
+
+  if (!email) {
+    return res.status(400).json({ message: 'Email is required' });
+  }
+
+  const otp = generateOTP();
+  otpcache[email] = otp;
+
+  sendOTP(email, otp); // Send OTP to email
+  res.status(200).json({ message: 'OTP Sent Successfully' });
+});
+
+
+// Verify OTP route
+app.post('/verifyOTP', async (req, res) => {
+  const { email, otp, name, password, number } = req.body;
+  console.log(`Verifying OTP for email: ${email} with OTP: ${otp}`);
+
+  if (!otpcache.hasOwnProperty(email)) {
+    return res.status(400).json({ message: 'Email not found in OTP cache' });
+  }
+
+  if (otpcache[email] === otp.trim()) {
+    delete otpcache[email]; // Remove OTP from cache once verified
+
+    // Hash password and save new user
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const newUser = new User({ name, email, password: hashedPassword, number });
+    await newUser.save();
+
+    return res.status(200).json({ message: 'OTP Verified Successfully' });
+  } else {
+    return res.status(400).json({ message: 'Invalid OTP' });
+  }
+});
+
+
+// /username route for JWT authentication
+app.get('/username', (req, res) => {
+  const token = req.headers.authorization?.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ message: 'Unauthorized' });
+  }
+
+  jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key', (err, decoded) => {
+    if (err) {
+      return res.status(401).json({ message: 'Invalid or expired token' });
+    }
+
+    return res.json({ username: decoded.username });
+  });
+});
+
+// Default Error Handling
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).send({ error: 'Something went wrong!' });
+});
+
+// Start the Server
+const PORT = process.env.PORT || 5000;
+http.listen(PORT, () => console.log(`🚀Server running on http://localhost:${PORT}`));

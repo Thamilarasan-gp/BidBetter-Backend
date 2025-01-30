@@ -1,0 +1,81 @@
+
+const KEY_ID = "rzp_test_CMsB4Ic9wCgo4O";
+const KEY_SECRET = "csqA59cyPOABIXA6ZOEiK2DI";
+
+// Order schema for MongoDB
+const orderSchema = new mongoose.Schema(
+  {
+    amount: { type: Number, required: true },
+    currency: { type: String, required: true },
+    receipt: { type: String, required: true },
+    status: { type: String, required: true },
+  },
+  { timestamps: true }
+);
+
+const Order = mongoose.model("Order", orderSchema);
+
+// Create payment order route
+app.post("/api/payment/orders", async (req, res) => {
+  try {
+    const instance = new Razorpay({
+      key_id: KEY_ID,
+      key_secret: KEY_SECRET,
+    });
+
+    const options = {
+      amount: req.body.amount * 100, // Amount in paise
+      currency: "INR",
+      receipt: crypto.randomBytes(10).toString("hex"),
+    };
+
+    instance.orders.create(options, (error, order) => {
+      if (error) {
+        console.log(error);
+        return res.status(500).json({ message: "Something Went Wrong!" });
+      }
+
+      // Save order details to MongoDB
+      const newOrder = new Order({
+        amount: req.body.amount,
+        currency: "INR",
+        receipt: order.receipt,
+        status: "created",
+      });
+
+      newOrder.save()
+        .then(() => {
+          res.status(200).json({ order });
+        })
+        .catch((err) => {
+          console.log(err);
+          res.status(500).json({ message: "Error saving order to database." });
+        });
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Internal Server Error!" });
+    console.log(error);
+  }
+});
+
+// Payment verification route
+app.post("/api/payment/verify", async (req, res) => {
+  try {
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+
+    const sign = razorpay_order_id + "|" + razorpay_payment_id;
+    const expectedSign = crypto
+      .createHmac("sha256", KEY_SECRET)
+      .update(sign.toString())
+      .digest("hex");
+
+    if (razorpay_signature === expectedSign) {
+      return res.status(200).json({ message: "Payment verified successfully" });
+    } else {
+      return res.status(400).json({ message: "Invalid signature sent!" });
+    }
+  } catch (error) {
+    res.status(500).json({ message: "Internal Server Error!" });
+    console.log(error);
+  }
+});
